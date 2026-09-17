@@ -1,0 +1,74 @@
+# Pylon custom-domain edge (Caddy with on-demand TLS).
+#
+# Customers CNAME status.theirdomain.com → {{EDGE_HOSTNAME}}. On the first HTTPS request Caddy asks Pylon
+# whether the hostname is a verified custom domain, obtains a Let's Encrypt certificate and proxies the request to the Pylon Worker with the original hostname attached.
+#
+# Rendered by install.sh; placeholders: {{PYLON_URL}} {{PYLON_HOST}} {{EDGE_HOSTNAME}} {{ACME_EMAIL}}
+# The shared secret is substituted from the environment at load time (EDGE_SECRET in /etc/caddy/pylon-edge.env).
+
+{
+	email {{ACME_EMAIL}}
+	# nginx keeps port 80 on this box (certbot, Wings), so Caddy only listens on 443 and proves
+	# domain ownership with the TLS-ALPN-01 challenge.
+	auto_https disable_redirects
+	http_port {{HTTP_PORT}}
+	default_bind 0.0.0.0 [::]
+	on_demand_tls {
+		ask {{PYLON_URL}}/api/edge/ask?token={$EDGE_SECRET}
+	}
+	servers {
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+	admin localhost:2019
+	log {
+		output file /var/log/caddy/pylon-edge.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+		format json
+		level WARN
+	}
+}
+
+# Health check for monitoring the edge itself (served on the edge hostname, certificate managed normally).
+{{EDGE_HOSTNAME}} {
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+	respond /healthz "ok" 200
+	respond "Pylon edge. Point your status page's CNAME here." 200
+}
+
+# Every other hostname: customer status pages.
+https:// {
+	tls {
+		on_demand
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+
+	encode zstd gzip
+
+	reverse_proxy {{PYLON_URL}} {
+		header_up Host {{PYLON_HOST}}
+		header_up X-Pylon-Host {host}
+		header_up X-Pylon-Edge-Secret {$EDGE_SECRET}
+		header_up -Cf-Connecting-Ip
+		transport http {
+			tls_server_name {{PYLON_HOST}}
+			dial_timeout 5s
+			response_header_timeout 30s
+			keepalive 2m
+		}
+		# a status page must stay reachable: retry briefly on upstream hiccups
+		lb_try_duration 5s
+		lb_try_interval 250ms
+	}
+}
