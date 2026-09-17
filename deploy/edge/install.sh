@@ -78,17 +78,27 @@ sed -e "s#{{PYLON_URL}}#$PYLON_URL#g" \
     "$here/Caddyfile.template" > "$tmp"
 
 log "Validating config"
+# validate runs as root and may create the log file; hand everything back to caddy afterwards
 if ! EDGE_SECRET="$EDGE_SECRET" caddy validate --adapter caddyfile --config "$tmp" >/tmp/caddy-validate.log 2>&1; then
   cat /tmp/caddy-validate.log; rm -f "$tmp"; die "config validation failed; nothing changed"
 fi
 caddy fmt --overwrite "$tmp" >/dev/null 2>&1 || true
 install -m 644 -o root -g caddy "$tmp" /etc/caddy/Caddyfile
 rm -f "$tmp"
+chown -R caddy:caddy /var/log/caddy
 
 rollback() {
   printf '\033[31mStart failed, rolling back\033[0m\n' >&2
-  journalctl -u caddy -n 30 --no-pager >&2 || true
-  if [ -f "/etc/caddy/Caddyfile.bak-$ts" ]; then cp "/etc/caddy/Caddyfile.bak-$ts" /etc/caddy/Caddyfile; systemctl restart caddy || systemctl stop caddy; else systemctl stop caddy; fi
+  journalctl -u caddy -n 30 --no-pager | grep -viE "GOMEMLIMIT|maxprocs|^\s*$" | tail -20 >&2 || true
+  # Only restore a previous config of ours; Caddy's stock Caddyfile binds :80 and would fight nginx.
+  if [ -f "/etc/caddy/Caddyfile.bak-$ts" ] && grep -q "X-Pylon-Host" "/etc/caddy/Caddyfile.bak-$ts"; then
+    cp "/etc/caddy/Caddyfile.bak-$ts" /etc/caddy/Caddyfile
+    systemctl restart caddy || systemctl stop caddy
+  else
+    systemctl stop caddy
+    systemctl disable caddy >/dev/null 2>&1 || true
+    printf 'Caddy is stopped and disabled; nothing else on this server was changed.\n' >&2
+  fi
   exit 1
 }
 
@@ -107,4 +117,5 @@ case "$code" in
   *)   echo "   WARNING: ask endpoint returned HTTP $code — is PYLON_URL right and deployed?";;
 esac
 
-log "Done. Point DNS: $EDGE_HOSTNAME → A $(curl -s4 --max-time 5 https://ifconfig.co 2>/dev/null || echo '<this server IP>')"
+ip4="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1)"
+log "Done. Point DNS: $EDGE_HOSTNAME → A ${ip4:-<this server IP>} (DNS only, no proxy)"
