@@ -1,0 +1,13 @@
+{
+  "name": "pylon-relay",
+  "version": "0.1.0",
+  "description": "Self-hosted probe runner for Pylon status pages: UDP game protocols, GameDig (300+ games), LAN hosts.",
+  "license": "AGPL-3.0-only",
+  "repository": { "type": "git", "url": "git+https://github.com/jackh54/Pylon.git", "directory": "relay" },
+  "type": "module",
+  "bin": { "pylon-relay": "./index.js" },
+  "main": "./index.js",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node index.js" },
+  "dependencies": { "gamedig": "^5.3.3" }
+}
