@@ -1,0 +1,1 @@
+ALTER TABLE `status_pages` ADD `custom_domain_verified_at` integer;
