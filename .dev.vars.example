@@ -1,0 +1,19 @@
+# Copy to .dev.vars for local development. In production set these with `wrangler secret put NAME`.
+
+# Required. 32+ random chars. `openssl rand -hex 32`
+SESSION_SECRET=change-me-to-a-long-random-string
+
+# Optional: Discord OAuth login (https://discord.com/developers/applications)
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=
+
+# Optional: Steam Web API key, used to query Source/A2S servers from the edge without a relay
+# https://steamcommunity.com/dev/apikey
+STEAM_API_KEY=
+
+# Optional: Resend API key for email notifications + subscriber emails
+RESEND_API_KEY=
+EMAIL_FROM="Pylon <status@example.com>"
+
+# Shared secret between the edge proxy (deploy/edge, Caddy) and this Worker. `openssl rand -hex 32`
+EDGE_SECRET=

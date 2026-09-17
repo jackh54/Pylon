@@ -1,0 +1,59 @@
+{
+  "name": "pylon",
+  "version": "0.1.0",
+  "description": "Open-source status pages and uptime monitoring built for game servers. Minecraft, Source/Steam, FiveM, Rust, Discord, Pterodactyl and anything else via relays and heartbeats.",
+  "license": "AGPL-3.0-only",
+  "repository": { "type": "git", "url": "git+https://github.com/jackh54/Pylon.git" },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "preview": "pnpm build && vite preview",
+    "deploy": "pnpm build && wrangler deploy",
+    "typegen": "wrangler types --env-file .dev.vars.example && react-router typegen",
+    "typecheck": "pnpm typegen && tsc -b",
+    "check": "pnpm typecheck && pnpm build && wrangler deploy --dry-run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply pylon --local",
+    "db:migrate": "wrangler d1 migrations apply pylon --remote",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "drizzle-orm": "0.45.2",
+    "isbot": "5.2.2",
+    "lucide-react": "1.46.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router": "8.4.0",
+    "workers-og": "0.0.27",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.54.11",
+    "@react-router/dev": "8.4.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.13.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "drizzle-kit": "0.31.10",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "wrangler": "4.133.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd",
+      "@tailwindcss/oxide",
+      "sharp"
+    ]
+  }
+}

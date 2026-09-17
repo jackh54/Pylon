@@ -1,0 +1,1 @@
+{ "name": "Pylon", "short_name": "Pylon", "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }], "theme_color": "#0b1220", "background_color": "#0a0d13", "display": "standalone", "start_url": "/app" }
