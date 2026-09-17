@@ -15,7 +15,7 @@ Pylon runs on either Cloudflare Workers plan with the same code. Pick the column
 |---|---|---|
 | Monitors at 60 s intervals (D1 write budget) | ~60 | ~1,000 |
 | Alert delivery | inline, one attempt | Cloudflare Queue, 5 retries with backoff |
-| Password hashing | PBKDF2 100k iterations (plan cap) | PBKDF2 600k iterations |
+| Password hashing | PBKDF2 600k iterations | PBKDF2 600k iterations |
 | CPU per request | 10 ms | 30 s (probe timeouts are wall-clock, so both work) |
 | Worker size limit | 3 MB gzipped (Pylon is ~1 MB) | 10 MB |
 | Durable Objects, R2, cron, WebSockets | included | included |
@@ -117,7 +117,7 @@ Relay (Node) ──pull config / push results──▶ Worker
 
 **Workers Paid (recommended, $5/month):** 50M D1 writes/month included (~1,000 monitors at 60 s), Queues for retried alert delivery, 10 MB scripts, 30 s CPU per request, higher PBKDF2 cost (`PBKDF2_ITERATIONS` defaults to 600000 in `wrangler.jsonc`). This is the configuration the repository ships with.
 
-**Workers Free:** works too. Remove the `queues` block from `wrangler.jsonc` (alerts are sent inline), set `PBKDF2_ITERATIONS` to `100000` (the Free cap), and stay under 100k D1 writes/day (~60 monitors at 60 s).
+**Workers Free:** works too. Remove the `queues` block from `wrangler.jsonc` (alerts are sent inline) and stay under 100k D1 writes/day (~60 monitors at 60 s). Password hashing is the same on both plans: Workers limits a single PBKDF2 call to 100000 iterations, so Pylon chains blocks to reach `PBKDF2_ITERATIONS`.
 
 - Each check writes one snapshot row; a daily rollup is flushed every 5 minutes.
 - Durable Objects are SQLite-backed; raw history is retained 30 days per monitor.

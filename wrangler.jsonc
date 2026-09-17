@@ -12,7 +12,8 @@
     "APP_URL": "https://pylon.pandascript.dev",
     // Set to "false" to disable public sign-ups (invite-only / single-tenant self-host).
     "ALLOW_SIGNUP": "true",
-    // Password hashing cost. Workers Paid: 600000 (OWASP). Workers Free caps PBKDF2 at 100000.
+    // Password hashing cost (OWASP recommends 600000 for PBKDF2-SHA256). Workers caps a single
+    // PBKDF2 call at 100000 on every plan, so higher counts are derived in chained blocks.
     "PBKDF2_ITERATIONS": "600000",
     // "hosted" enforces plan limits and shows pricing; "self-hosted" removes limits and billing UI. `pnpm setup` writes self-hosted.
     "INSTANCE_MODE": "hosted",

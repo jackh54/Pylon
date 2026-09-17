@@ -114,7 +114,7 @@ deploy/edge/    optional Caddy edge proxy for customer custom domains (on-demand
 |---|---|---|
 | `APP_URL` | `wrangler.jsonc` vars | Public URL (absolute links, OG images, custom-domain detection) |
 | `ALLOW_SIGNUP` | `wrangler.jsonc` vars | `"false"` makes the instance invite-only |
-| `PBKDF2_ITERATIONS` | `wrangler.jsonc` vars | Password hashing cost (600000 on Paid, 100000 cap on Free) |
+| `PBKDF2_ITERATIONS` | `wrangler.jsonc` vars | Password hashing cost; 600000 by default, derived in 100000-iteration blocks because Workers caps a single call |
 | `NOTIFY_QUEUE` | `wrangler.jsonc` queues | Optional. Queue-backed alert delivery with retries (Workers Paid) |
 | `INSTANCE_MODE` | `wrangler.jsonc` vars | `hosted` (plan limits, pricing, admin) or `self-hosted` (no limits) |
 | `DEFAULT_PLAN`, `BILLING_URL`, `ADMIN_EMAILS` | `wrangler.jsonc` vars | Hosted-mode plan defaults, upgrade link, operator emails |

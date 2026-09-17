@@ -48,8 +48,8 @@ async function main() {
   let plan = typeof flag("plan") === "string" ? flag("plan") : undefined;
   if (!plan) {
     log("Which Cloudflare Workers plan is this account on?");
-    log(`  ${c.bold("paid")}  $5/mo — Queues for retried alerts, 50M D1 writes/mo (~1,000 monitors), 30 s CPU, strong password hashing`);
-    log(`  ${c.bold("free")}  $0    — no Queues (alerts sent inline), 100k D1 writes/day (~60 monitors), PBKDF2 capped at 100k`);
+    log(`  ${c.bold("paid")}  $5/mo — Queues for retried alerts, 50M D1 writes/mo (~1,000 monitors), 30 s CPU`);
+    log(`  ${c.bold("free")}  $0    — no Queues (alerts sent inline), 100k D1 writes/day (~60 monitors)`);
     plan = await ask("Plan [paid/free]", "paid");
   }
   plan = plan.toLowerCase() === "free" ? "free" : "paid";
@@ -108,7 +108,7 @@ async function main() {
     .replace(/"database_name": "[^"]*"/, `"database_name": "${dbName}"`)
     .replace(/"database_id": "[^"]*"/, `"database_id": "${databaseId}"`)
     .replace(/"bucket_name": "[^"]*"/, `"bucket_name": "${bucket}"`)
-    .replace(/"PBKDF2_ITERATIONS": "[^"]*"/, `"PBKDF2_ITERATIONS": "${plan === "paid" ? "600000" : "100000"}"`)
+    .replace(/"PBKDF2_ITERATIONS": "[^"]*"/, '"PBKDF2_ITERATIONS": "600000"')
     .replace(/"INSTANCE_MODE": "[^"]*"/, `"INSTANCE_MODE": "${hosted ? "hosted" : "self-hosted"}"`)
     .replace(/"ADMIN_EMAILS": "[^"]*"/, `"ADMIN_EMAILS": "${admin}"`);
   if (url) cfg = cfg.replace(/"APP_URL": "[^"]*"/, `"APP_URL": "${url.replace(/\/$/, "")}"`);
