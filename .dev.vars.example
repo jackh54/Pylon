@@ -3,6 +3,9 @@
 # Required. 32+ random chars. `openssl rand -hex 32`
 SESSION_SECRET=change-me-to-a-long-random-string
 
+# Comma-separated emails allowed to open /app/admin (instance operators).
+ADMIN_EMAILS=
+
 # Optional: Discord OAuth login (https://discord.com/developers/applications)
 DISCORD_CLIENT_ID=
 DISCORD_CLIENT_SECRET=

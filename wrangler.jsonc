@@ -5,9 +5,11 @@
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // The hosted instance. `pnpm setup` rewrites this block for self-hosted deployments.
+  "routes": [{ "pattern": "pylon.pandascript.dev", "custom_domain": true }],
   "vars": {
     // Public URL of this deployment. Used for absolute links, sitemaps, OG images and emails.
-    "APP_URL": "http://localhost:5173",
+    "APP_URL": "https://pylon.pandascript.dev",
     // Set to "false" to disable public sign-ups (invite-only / single-tenant self-host).
     "ALLOW_SIGNUP": "true",
     // Password hashing cost. Workers Paid: 600000 (OWASP). Workers Free caps PBKDF2 at 100000.
@@ -16,15 +18,13 @@
     "INSTANCE_MODE": "hosted",
     // Plan for new teams on a hosted instance: "free" or "pro" (use "pro" during a beta to unlock everything).
     "DEFAULT_PLAN": "pro",
-    // Comma-separated emails that can open /app/admin (change plans, see all teams).
-    "ADMIN_EMAILS": "",
     // Optional: where "Upgrade" buttons link once billing exists.
     "BILLING_URL": "",
-    // Custom domains via your own edge proxy (deploy/edge). Hostname customers CNAME to, e.g. "edge.example.com".
+    // Custom domains via your own edge proxy (deploy/edge). Hostname customers CNAME to.
     // Leave empty for manual custom domains (Worker Custom Domains on your own Cloudflare account).
-    "CUSTOM_DOMAIN_TARGET": "",
+    "CUSTOM_DOMAIN_TARGET": "edge.pandascript.dev",
     // Comma-separated public IPs of the edge proxy, accepted for A/AAAA records (apex domains).
-    "CUSTOM_DOMAIN_IPS": ""
+    "CUSTOM_DOMAIN_IPS": "15.204.210.101,2604:2dc0:101:200::1a71"
   },
   // Abuse protection for sign-in, heartbeat pushes and public forms (per IP / token, per minute).
   "ratelimits": [
@@ -42,8 +42,8 @@
     {
       "binding": "DB",
       "database_name": "pylon",
-      // Replace with the id printed by `wrangler d1 create pylon` before deploying.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Created by `wrangler d1 create pylon`; `pnpm setup` writes this for self-hosted deployments.
+      "database_id": "831321be-1fa8-45b2-99c7-a79258a8e456",
       "migrations_dir": "drizzle"
     }
   ],
