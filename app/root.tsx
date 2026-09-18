@@ -4,6 +4,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { BRAND } from "./lib/brand";
 import { getCf } from "./lib/server";
+import { looksLikeStaleBuild, reloadOnce, watchForStaleBuild } from "./lib/stale-build";
 
 export const links: Route.LinksFunction = () => [{ rel: "manifest", href: "/site.webmanifest" }];
 
@@ -40,11 +41,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  useEffect(() => { (window as { __pylonHydrated?: boolean }).__pylonHydrated = true; }, []);
+  useEffect(() => {
+    (window as { __pylonHydrated?: boolean }).__pylonHydrated = true;
+    return watchForStaleBuild();
+  }, []);
   return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  // A deploy while this tab was open leaves it pointing at files that no longer exist; reload into
+  // the new build instead of showing an error the visitor can do nothing about.
+  const stale = !isRouteErrorResponse(error) && looksLikeStaleBuild(error);
+  useEffect(() => { if (stale) reloadOnce(); }, [stale]);
+
   let title = "Something went wrong";
   let detail = "An unexpected error occurred.";
   let stack: string | undefined;
@@ -59,9 +68,12 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     <main className="min-h-dvh flex items-center justify-center p-6">
       <div className="max-w-lg w-full text-center">
         <p className="text-xs font-mono uppercase tracking-widest text-fg-faint">{BRAND.name}</p>
-        <h1 className="mt-3 text-3xl font-semibold">{title}</h1>
-        <p className="mt-2 text-fg-muted">{detail}</p>
-        <a href="/" className="btn-secondary mt-6">Back home</a>
+        <h1 className="mt-3 text-3xl font-semibold">{stale ? "Updating…" : title}</h1>
+        <p className="mt-2 text-fg-muted">{stale ? "This page was updated. Reloading…" : detail}</p>
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <button type="button" onClick={() => window.location.reload()} className="btn-primary">Reload</button>
+          <a href="/" className="btn-secondary">Back home</a>
+        </div>
         {stack && <pre className="mt-8 text-left text-xs overflow-x-auto p-4 rounded-lg bg-surface-2 border border-line">{stack}</pre>}
       </div>
     </main>

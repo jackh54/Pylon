@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRevalidator } from "react-router";
+import { looksLikeStaleBuild, reloadOnce } from "~/lib/stale-build";
 import type { MonitorSnapshot, MonitorStatus } from "@server/db/schema";
 
 export interface LiveUpdate {
@@ -22,8 +23,15 @@ export function useLiveStatus(basePath: string, enabled = true) {
   const [updates, setUpdates] = useState<Record<string, LiveUpdate>>({});
   const [connected, setConnected] = useState(false);
   const revalidator = useRevalidator();
-  const revalidate = useRef(revalidator.revalidate);
-  revalidate.current = revalidator.revalidate;
+  const revalidate = useRef(() => {});
+  // Background refreshes are best-effort: a dropped connection must not replace the page with an
+  // error, and a refresh that fails because the app was redeployed reloads into the new build.
+  revalidate.current = () => {
+    Promise.resolve(revalidator.revalidate()).catch((e: unknown) => {
+      if (looksLikeStaleBuild(e)) reloadOnce();
+      else console.warn("[pylon] background refresh failed", e);
+    });
+  };
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
