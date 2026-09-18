@@ -78,7 +78,7 @@ export function StatusIndexView() {
   const overallTone = toneFor(s.overall.state);
   const players = components.reduce<{ p: number | null; m: number | null }>((acc, c) => {
     const d = c.monitor?.data;
-    if (d && typeof d.players === "number" && c.monitor?.status !== "down") { acc.p = (acc.p ?? 0) + d.players; if (typeof d.maxPlayers === "number") acc.m = (acc.m ?? 0) + d.maxPlayers; }
+    if (d && typeof d.players === "number" && c.monitor?.status !== "down" && c.display.countInTotal !== false) { acc.p = (acc.p ?? 0) + d.players; if (typeof d.maxPlayers === "number") acc.m = (acc.m ?? 0) + d.maxPlayers; }
     return acc;
   }, { p: null, m: null });
   const lastChecked = Math.max(0, ...components.map((c) => c.monitor?.lastCheckedAt ?? 0));

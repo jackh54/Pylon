@@ -159,7 +159,7 @@ export async function loadPublicStatus(db: Database, page: StatusPage, opts: { m
   let maxPlayers: number | null = null;
   for (const c of components) {
     const d = c.monitor?.data;
-    if (d && typeof d.players === "number" && c.monitor?.status !== "down") {
+    if (d && typeof d.players === "number" && c.monitor?.status !== "down" && c.display.countInTotal !== false) {
       players = (players ?? 0) + d.players;
       if (typeof d.maxPlayers === "number") maxPlayers = (maxPlayers ?? 0) + d.maxPlayers;
     }

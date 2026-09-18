@@ -194,7 +194,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       }
       await db.update(pageComponents).set({
         name: str(form, "name") || "Component", description: str(form, "description") || null, sectionId: str(form, "sectionId") || null, monitorId,
-        display: { showLatency: bool(form, "showLatency"), showPlayers: bool(form, "showPlayers"), showVersion: bool(form, "showVersion"), showHistory: bool(form, "showHistory"), fields: str(form, "fields").split(",").map((s) => s.trim()).filter(Boolean) },
+        display: { showLatency: bool(form, "showLatency"), showPlayers: bool(form, "showPlayers"), showVersion: bool(form, "showVersion"), showHistory: bool(form, "showHistory"), countInTotal: bool(form, "countInTotal"), fields: str(form, "fields").split(",").map((s) => s.trim()).filter(Boolean) },
       }).where(and(eq(pageComponents.id, id), eq(pageComponents.pageId, page.id)));
       await syncMonitorsForPage(env, db, page.id);
       return ok("Component saved", "components");
@@ -297,6 +297,7 @@ export default function PageEditor({ loaderData, actionData }: Route.ComponentPr
                                 <Checkbox name="showPlayers" defaultChecked={c.display.showPlayers !== false} label="Players" disabled={disabled} />
                                 <Checkbox name="showLatency" defaultChecked={c.display.showLatency !== false} label="Latency" disabled={disabled} />
                                 <Checkbox name="showVersion" defaultChecked={c.display.showVersion !== false} label="Version" disabled={disabled} />
+                                <Checkbox name="countInTotal" defaultChecked={c.display.countInTotal !== false} label="Count in players total" disabled={disabled} />
                               </div>
                               {canEdit && <div className="sm:col-span-2"><SubmitButton variant="secondary" className="btn-sm">Save component</SubmitButton></div>}
                             </Form>

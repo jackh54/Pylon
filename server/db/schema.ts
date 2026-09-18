@@ -252,6 +252,11 @@ export interface ComponentDisplay {
   showHistory?: boolean;
   /** extra snapshot keys to render as chips, e.g. ["map","tps"] */
   fields?: string[];
+  /**
+   * Include this component's players in the page's "Players online" total. Turn off for backend
+   * servers behind a proxy, whose players are already counted by the proxy's component.
+   */
+  countInTotal?: boolean;
 }
 
 export const pageComponents = sqliteTable("page_components", {

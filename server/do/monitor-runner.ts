@@ -9,6 +9,7 @@ import { getProbe, probeAddress, runProbe } from "../probes/registry";
 import type { ProbeResult } from "../probes/types";
 import type { NotificationPayload } from "../notify";
 import { dispatchNotification } from "../notify/dispatch";
+import { pageLinksForMonitor } from "../services/monitors";
 
 export interface RunnerPageLink { pageId: string; componentId: string; autoIncidents: boolean }
 
@@ -99,6 +100,8 @@ function freshAcc(day: string): DayAcc {
  */
 export class MonitorRunner extends DurableObject<Env> {
   private sql: SqlStorage;
+  /** Which status pages show this monitor, re-read from D1 periodically (see currentPages). */
+  private pagesCache: { at: number; links: RunnerPageLink[] } | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -117,6 +120,23 @@ export class MonitorRunner extends DurableObject<Env> {
 
   private db() { return createDb(this.env.DB); }
 
+  /**
+   * Page placement changes without this object being told (components added through the editor
+   * or directly in D1), so the list captured at configure() time can go stale. Re-read it every
+   * few minutes; fall back to the configured list if D1 is unavailable.
+   */
+  private async currentPages(cfg: RunnerConfig): Promise<RunnerPageLink[]> {
+    const now = Date.now();
+    if (this.pagesCache && now - this.pagesCache.at < 5 * MINUTE) return this.pagesCache.links;
+    try {
+      const links = await pageLinksForMonitor(this.db(), cfg.monitorId);
+      this.pagesCache = { at: now, links };
+      return links;
+    } catch {
+      return this.pagesCache?.links ?? cfg.pages;
+    }
+  }
+
   private async getConfig(): Promise<RunnerConfig | undefined> {
     return this.ctx.storage.get<RunnerConfig>("config");
   }
@@ -130,6 +150,7 @@ export class MonitorRunner extends DurableObject<Env> {
 
   /** Install or update the monitor definition. Idempotent; (re)schedules the alarm. */
   async configure(cfg: RunnerConfig): Promise<void> {
+    this.pagesCache = { at: Date.now(), links: cfg.pages };
     const prev = await this.getConfig();
     await this.ctx.storage.put("config", cfg);
     if (!cfg.enabled) {
@@ -377,21 +398,22 @@ export class MonitorRunner extends DurableObject<Env> {
 
     // --- live broadcast to every status page showing this monitor
     const event = { type: "monitor", monitorId: cfg.monitorId, status: next, latencyMs: result.latencyMs ?? null, message, data: snapshot, checkedAt: now, changed, source };
-    for (const link of cfg.pages) {
+    const pages = await this.currentPages(cfg);
+    for (const link of pages) {
       const hub = this.env.LIVE.get(this.env.LIVE.idFromName(link.pageId)) as unknown as LiveHubStub;
       void hub.broadcast({ ...event, componentId: link.componentId }).catch(() => {});
     }
 
     // --- transitions: purge cached pages, incidents + notifications
-    if (changed && cfg.pages.length) {
+    if (changed && pages.length) {
       try {
-        const pages = await db.select({ slug: statusPages.slug, customDomain: statusPages.customDomain }).from(statusPages).where(inArray(statusPages.id, cfg.pages.map((p) => p.pageId))).all();
-        await Promise.allSettled(pages.map((p) => purgePageCache(this.env, p)));
+        const pageRows = await db.select({ slug: statusPages.slug, customDomain: statusPages.customDomain }).from(statusPages).where(inArray(statusPages.id, pages.map((p) => p.pageId))).all();
+        await Promise.allSettled(pageRows.map((p) => purgePageCache(this.env, p)));
       } catch { /* best effort */ }
     }
     if (changed && this.isAlertable(prevStatus, next)) {
       await Promise.allSettled([
-        this.handleAutoIncidents(cfg, prevStatus, next, message),
+        this.handleAutoIncidents({ ...cfg, pages }, prevStatus, next, message),
         this.notify(cfg, prevStatus, next, result, message),
       ]);
     }
