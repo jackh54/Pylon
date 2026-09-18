@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fail, errorMessage, type ProbeDefinition } from "./types";
+import { fail, skip, errorMessage, type ProbeDefinition } from "./types";
 
 const schema = z.object({
   host: z.string().min(1),
@@ -48,6 +48,8 @@ export const minecraftBedrockProbe: ProbeDefinition<MinecraftBedrockConfig> = {
         headers: { accept: "application/json", "user-agent": "Pylon-Monitor/1.0" },
         signal: ctx.signal,
       });
+      // mcstatus.io does the UDP hop for us; its own failures say nothing about the game server.
+      if (res.status === 429 || res.status >= 500) return skip(`mcstatus.io unavailable (HTTP ${res.status})`);
       if (!res.ok) return fail(`mcstatus.io responded HTTP ${res.status}`);
       const json = (await res.json()) as McStatusBedrock;
       const latencyMs = Date.now() - started;

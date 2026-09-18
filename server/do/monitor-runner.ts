@@ -258,6 +258,21 @@ export class MonitorRunner extends DurableObject<Env> {
   private async record(cfg: RunnerConfig, result: ProbeResult, source: string): Promise<MonitorStatus> {
     const now = Date.now();
     const state = await this.getState();
+
+    // No verdict (a third party rate-limited or failed us): keep the current status and leave
+    // uptime untouched, but record that we tried.
+    if (result.skip) {
+      state.lastResultAt = now;
+      await this.ctx.storage.put("state", state);
+      try {
+        await this.db().update(monitors).set({ lastCheckedAt: now, lastMessage: (result.message ?? "No verdict").slice(0, 500) }).where(eq(monitors.id, cfg.monitorId));
+      } catch (e) {
+        console.error(`[monitor ${cfg.monitorId}] skip write failed`, e);
+      }
+      console.log(`[monitor ${cfg.monitorId}] skipped (${source}): ${result.message ?? ""}`);
+      return state.status;
+    }
+
     const prevStatus = state.status;
     const elapsedSec = state.lastResultAt ? Math.min((now - state.lastResultAt) / SECOND, cfg.intervalSec * 2) : cfg.intervalSec;
 

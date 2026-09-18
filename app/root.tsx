@@ -1,19 +1,23 @@
 import { useEffect } from "react";
-import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from "react-router";
 import type { Route } from "./+types/root";
 import "./app.css";
 import { BRAND } from "./lib/brand";
+import { getCf } from "./lib/server";
 
-export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
-  { rel: "manifest", href: "/site.webmanifest" },
-];
+export const links: Route.LinksFunction = () => [{ rel: "manifest", href: "/site.webmanifest" }];
+
+// A status page on its own domain should show its own icon, so the icon link is rendered from
+// loader data rather than being hard-coded here.
+export function loader({ context }: Route.LoaderArgs) {
+  return { icon: getCf(context).customDomainFavicon ?? null };
+}
 
 // Runs before paint: avoids a light/dark flash. Status pages may pin a mode via data-theme.
 const themeScript = `(function(){try{var d=document.documentElement;var f=d.getAttribute('data-theme');var m=f&&f!=='system'?f:(localStorage.getItem('theme')||'system');if(m==='system'){m=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.classList.toggle('dark',m==='dark')}catch(e){}})();`;
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const icon = useRouteLoaderData<typeof loader>("root")?.icon;
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -21,6 +25,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="color-scheme" content="light dark" />
         <meta name="generator" content={`${BRAND.name} (open source)`} />
+        {icon ? <link rel="icon" href={icon} /> : <><link rel="icon" href="/favicon.svg" type="image/svg+xml" /><link rel="apple-touch-icon" href="/apple-touch-icon.png" /></>}
         <Meta />
         <Links />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

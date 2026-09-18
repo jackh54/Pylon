@@ -55,7 +55,7 @@ export function StatusShell({ data: shellData, error, children }: { data: Status
     <div className="status-root min-h-dvh bg-bg text-fg flex flex-col">
       <style dangerouslySetInnerHTML={{ __html: css }} />
       {!clientMount && <script dangerouslySetInnerHTML={{ __html: modeScript }} />}
-      {shell.faviconUrl && <link rel="icon" href={shell.faviconUrl} />}
+      {(shell.faviconUrl || shell.logoUrl) && !shellData.onCustomDomain && <link rel="icon" href={shell.faviconUrl || shell.logoUrl!} />}
       <header className="border-b border-line/70">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link to={basePath || "/"} className="flex min-w-0 items-center gap-2.5 font-semibold">

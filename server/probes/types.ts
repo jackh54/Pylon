@@ -6,6 +6,12 @@ export type Runner = "edge" | "relay" | "push";
 export interface ProbeResult {
   /** reachable and all assertions passed */
   ok: boolean;
+  /**
+   * No verdict: the check could not be performed for a reason unrelated to the monitored service
+   * (a third-party API rate-limited or failed us). The monitor keeps its current status, and the
+   * attempt is left out of uptime figures.
+   */
+  skip?: boolean;
   latencyMs?: number;
   /** short human summary, e.g. "12/100 players · 1.21.4" */
   message?: string;
@@ -67,6 +73,11 @@ export interface ProbeDefinition<C = Record<string, unknown>> {
 
 export function fail(error: string, extra: Partial<ProbeResult> = {}): ProbeResult {
   return { ok: false, error, ...extra };
+}
+
+/** No verdict this round; see ProbeResult.skip. */
+export function skip(reason: string): ProbeResult {
+  return { ok: false, skip: true, message: reason };
 }
 
 export function errorMessage(e: unknown): string {

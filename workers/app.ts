@@ -51,12 +51,15 @@ export default {
 
     // --- custom domains
     let customDomainSlug: string | undefined;
+    let customDomainFavicon: string | undefined;
     let pageId: string | undefined;
     const foreignHost = edgeHost ?? (url.host !== appHost && !isLocalHost(url.hostname) ? url.hostname.toLowerCase() : null);
     if (foreignHost) {
       const page = await pageForHost(createDb(env.DB), foreignHost);
       if (page?.published) {
         customDomainSlug = page.slug;
+        // fall back to the logo: most people upload one and expect it as the tab icon too
+        customDomainFavicon = page.faviconUrl ?? page.logoUrl ?? undefined;
         pageId = page.id;
         if (!allowedOnCustomDomain(url.pathname)) {
           return Response.redirect(`${env.APP_URL.replace(/\/$/, "")}${url.pathname}${url.search}`, request.method === "GET" || request.method === "HEAD" ? 302 : 307);
@@ -107,7 +110,7 @@ export default {
     }
 
     const context = new RouterContextProvider();
-    context.set(cloudflareContext, { env, ctx, customDomainSlug });
+    context.set(cloudflareContext, { env, ctx, customDomainSlug, customDomainFavicon });
     const response = await requestHandler(request, context);
 
     if (cacheable && response.ok && /s-maxage=\d+/.test(response.headers.get("cache-control") ?? "") && !response.headers.has("set-cookie")) {

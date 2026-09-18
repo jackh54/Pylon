@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fail, errorMessage, type ProbeDefinition } from "./types";
+import { fail, skip, errorMessage, type ProbeDefinition } from "./types";
 import { resolveIpv4 } from "../lib/net";
 
 const schema = z.object({
@@ -47,6 +47,7 @@ export const sourceProbe: ProbeDefinition<SourceConfig> = {
       const ip = await resolveIpv4(config.host, ctx.signal);
       const url = `https://api.steampowered.com/IGameServersService/GetServerList/v1/?key=${encodeURIComponent(ctx.secrets.STEAM_API_KEY)}&limit=1&filter=${encodeURIComponent(`\\addr\\${ip}:${config.port}`)}`;
       const res = await fetch(url, { signal: ctx.signal, headers: { accept: "application/json" } });
+      if (res.status === 429 || res.status >= 500) return skip(`Steam Web API unavailable (HTTP ${res.status})`);
       if (!res.ok) return fail(`Steam Web API responded HTTP ${res.status}`);
       const json = (await res.json()) as { response?: { servers?: SteamServer[] } };
       const latencyMs = Date.now() - started;

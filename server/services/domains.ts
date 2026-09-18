@@ -119,7 +119,7 @@ export async function releaseStaleClaims(db: Database): Promise<void> {
 
 /** Page served on `hostname`, if any (verified domains only). */
 export async function pageForHost(db: Database, hostname: string) {
-  return db.select({ id: statusPages.id, slug: statusPages.slug, orgId: statusPages.orgId, published: statusPages.published })
+  return db.select({ id: statusPages.id, slug: statusPages.slug, orgId: statusPages.orgId, published: statusPages.published, faviconUrl: statusPages.faviconUrl, logoUrl: statusPages.logoUrl })
     .from(statusPages)
     .where(and(eq(statusPages.customDomain, hostname), isNotNull(statusPages.customDomainVerifiedAt)))
     .get();
