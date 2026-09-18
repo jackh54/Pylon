@@ -5,7 +5,7 @@ import {
   type ComponentDisplay, type Incident, type IncidentUpdate, type Maintenance, type MonitorSnapshot, type MonitorStatus, type StatusPage,
 } from "../db/schema";
 import { DAY, lastDays } from "../lib/time";
-import { getProbe, probeAddress } from "../probes/registry";
+import { getProbe } from "../probes/registry";
 
 import { componentState, STATE_LABEL, type ComponentState, type OverallState } from "./status-state";
 export { componentState, STATE_LABEL, type ComponentState, type OverallState };
@@ -35,7 +35,6 @@ export interface PublicComponent {
     typeName: string;
     badge: string | null;
     status: MonitorStatus;
-    address: string;
     intervalSec: number;
     lastCheckedAt: number | null;
     lastLatencyMs: number | null;
@@ -139,7 +138,7 @@ export async function loadPublicStatus(db: Database, page: StatusPage, opts: { m
       state: componentState(m?.status, maintComponentIds.has(c.id)),
       monitor: m ? {
         id: m.id, type: m.type, typeName: def?.name ?? m.type, badge: def?.badge ?? null, status: m.status,
-        address: probeAddress(m.type, m.config), intervalSec: m.intervalSec,
+        intervalSec: m.intervalSec,
         lastCheckedAt: m.lastCheckedAt, lastLatencyMs: m.lastLatencyMs, lastMessage: m.lastMessage, data: m.lastData,
       } : null,
       history,
