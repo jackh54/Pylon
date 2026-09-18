@@ -1,14 +1,14 @@
 import { Form, Link, data, redirect, useFetcher, useSearchParams } from "react-router";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { Pause, Pencil, Play, RefreshCw, Trash2, ExternalLink } from "lucide-react";
 import type { Route } from "./+types/monitor-detail";
-import { Badge, Card, CardHeader, Code, CopyButton, PageHeader, Stat, StatusDot, Table, Td, Th, toneFor, cn } from "~/components/ui";
+import { Badge, Card, CardHeader, Code, CopyButton, Field, Input, PageHeader, Stat, StatusDot, Table, Td, Th, toneFor, cn } from "~/components/ui";
 import { ProbeIcon } from "~/components/icons";
 import { TimeChart } from "~/components/status-visuals";
 import { formatDataValue, formatDate, relativeTime } from "~/lib/format";
 import { appUrl, getDb, getEnv, requireAuth, requireRole } from "~/lib/server";
-import { dailyStats, events, monitors, pageComponents, statusPages } from "@server/db/schema";
-import { DAY, HOUR, MINUTE, lastDays } from "@server/lib/time";
+import { dailyStats, events, incidents, monitors, pageComponents, statusPages } from "@server/db/schema";
+import { DAY, HOUR, MINUTE, lastDays, utcDay } from "@server/lib/time";
 import { randomToken } from "@server/lib/ids";
 import { getProbe, probeAddress } from "@server/probes/registry";
 import { deleteMonitor, runnerStub, syncMonitor } from "@server/services/monitors";
@@ -69,7 +69,8 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const env = getEnv(context);
   const m = await db.select().from(monitors).where(and(eq(monitors.id, params.id), eq(monitors.orgId, auth.org.id))).get();
   if (!m) throw data("Not found", { status: 404 });
-  const intent = String((await request.formData()).get("intent") ?? "");
+  const intentForm = await request.formData();
+  const intent = String(intentForm.get("intent") ?? "");
   switch (intent) {
     case "check": {
       const r = await runnerStub(env, m.id).check().catch((e: Error) => ({ result: { ok: false, error: e.message } as ProbeResult, status: m.status }));
@@ -77,6 +78,21 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     }
     case "pause": await db.update(monitors).set({ enabled: false, status: "paused" }).where(eq(monitors.id, m.id)); await syncMonitor(env, db, m.id); return { ok: true };
     case "resume": await db.update(monitors).set({ enabled: true, status: "pending" }).where(eq(monitors.id, m.id)); await syncMonitor(env, db, m.id); return { ok: true };
+    case "forget-day": {
+      requireRole(auth, "admin");
+      const day = String((await Promise.resolve(intentForm)).get("day") ?? "") || utcDay();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { error: "Pick a date" };
+      const start = Date.parse(`${day}T00:00:00Z`);
+      const result = await runnerStub(env, m.id).forgetDay(day).catch((e: Error) => ({ error: e.message }));
+      if (result && "error" in result) return { error: result.error };
+      // the transitions and any incident opened by them are part of the same false alarm
+      await db.batch([
+        db.delete(events).where(and(eq(events.monitorId, m.id), gte(events.createdAt, start), lt(events.createdAt, start + DAY))),
+        db.delete(incidents).where(and(eq(incidents.monitorId, m.id), eq(incidents.auto, true), gte(incidents.startedAt, start), lt(incidents.startedAt, start + DAY))),
+      ]);
+      if (m.status === "down") await db.update(monitors).set({ status: "pending" }).where(eq(monitors.id, m.id));
+      return { cleared: day };
+    }
     case "rotate-token": await db.update(monitors).set({ pushToken: randomToken(24) }).where(eq(monitors.id, m.id)); return { ok: true };
     case "delete": await deleteMonitor(env, db, m.id); throw redirect("/app/monitors");
   }
@@ -86,6 +102,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 export default function MonitorDetail({ loaderData }: Route.ComponentProps) {
   const { monitor: m, type, address, pushUrl, history, buckets, events: evs, pages, uptime, avgLatency, now, rangeKey, ranges, canEdit } = loaderData;
   const check = useFetcher<typeof action>();
+  const forget = useFetcher<typeof action>();
   const [, setParams] = useSearchParams();
   const latencySeries = buckets.map((b) => ({ t: b.t, v: b.avgLatency === null ? null : Math.round(b.avgLatency) }));
   const playerSeries = buckets.map((b) => ({ t: b.t, v: b.avgPlayers === null ? null : Math.round(b.avgPlayers) }));
@@ -189,7 +206,16 @@ export default function MonitorDetail({ loaderData }: Route.ComponentProps) {
             </div>
           </Card>
           <Card>
-            <CardHeader title="Status changes" />
+            <CardHeader title="Status changes" description={canEdit ? "Clear a day when an outage was a false alarm." : undefined} />
+            {canEdit && (
+              <forget.Form method="post" className="flex flex-wrap items-end gap-2 px-5 pt-4" onSubmit={(e) => { if (!confirm("Erase recorded failures for that day? Uptime for the day returns to 100% and auto-created incidents for it are deleted.")) e.preventDefault(); }}>
+                <input type="hidden" name="intent" value="forget-day" />
+                <Field label="Clear downtime on" name="day" className="flex-1 min-w-40"><Input name="day" type="date" defaultValue={new Date(now).toISOString().slice(0, 10)} /></Field>
+                <button className="btn-secondary btn-sm mb-0.5" disabled={forget.state !== "idle"}>{forget.state !== "idle" ? "Clearing…" : "Clear"}</button>
+                {forget.data && "cleared" in forget.data && <p className="w-full text-xs text-up">Cleared {forget.data.cleared}. Uptime recalculates on the next check.</p>}
+                {forget.data && "error" in forget.data && <p className="w-full text-xs text-down">{forget.data.error}</p>}
+              </forget.Form>
+            )}
             <ul className="p-5 space-y-3 text-sm">
               {evs.length === 0 && <li className="text-fg-muted">No transitions recorded.</li>}
               {evs.map((e) => (

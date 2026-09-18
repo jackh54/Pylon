@@ -70,6 +70,7 @@ export interface HistoryBucket {
 
 /** Explicit RPC surface of the DO (avoids the generic Rpc typing collapsing to never on unknown-typed JSON). */
 export interface MonitorRunnerStub {
+  forgetDay(day: string): Promise<{ checks: number; failures: number }>;
   configure(cfg: RunnerConfig): Promise<void>;
   destroy(): Promise<void>;
   pause(): Promise<void>;
@@ -182,6 +183,38 @@ export class MonitorRunner extends DurableObject<Env> {
     const status = await this.record(cfg, result, source);
     if (cfg.enabled) await this.ctx.storage.setAlarm(Date.now() + this.watchdogMs(cfg));
     return status;
+  }
+
+  /**
+   * Erase recorded failures for one UTC day: used when an outage was not the monitored service's
+   * fault (a false alarm). Checks still count, so uptime for that day becomes 100%.
+   */
+  async forgetDay(day: string): Promise<{ checks: number; failures: number }> {
+    const cfg = await this.getConfig();
+    if (!cfg) throw new Error("Monitor is not configured");
+    const start = Date.parse(`${day}T00:00:00Z`);
+    if (Number.isNaN(start)) throw new Error(`Invalid day "${day}"`);
+    const end = start + DAY;
+
+    this.sql.exec("DELETE FROM heartbeats WHERE ok = 0 AND ts >= ? AND ts < ?", start, end);
+
+    const state = await this.getState();
+    if (state.acc.day === day) {
+      state.acc.failures = 0;
+      state.acc.degraded = 0;
+      state.acc.downtimeSec = 0;
+      state.consecutiveFails = 0;
+      await this.ctx.storage.put("state", state);
+      const db = this.db();
+      await db.insert(dailyStats).values({ monitorId: cfg.monitorId, day, ...pick(state.acc) })
+        .onConflictDoUpdate({ target: [dailyStats.monitorId, dailyStats.day], set: pick(state.acc) });
+      return { checks: state.acc.checks, failures: 0 };
+    }
+    const db = this.db();
+    await db.update(dailyStats).set({ failures: 0, degraded: 0, downtimeSec: 0 })
+      .where(and(eq(dailyStats.monitorId, cfg.monitorId), eq(dailyStats.day, day)));
+    const row = await db.select().from(dailyStats).where(and(eq(dailyStats.monitorId, cfg.monitorId), eq(dailyStats.day, day))).get();
+    return { checks: row?.checks ?? 0, failures: 0 };
   }
 
   /** Raw heartbeats, newest first. */
