@@ -17,6 +17,11 @@ export function loader({ context }: Route.LoaderArgs) {
 // Runs before paint: avoids a light/dark flash. Status pages may pin a mode via data-theme.
 const themeScript = `(function(){try{var d=document.documentElement;var f=d.getAttribute('data-theme');var m=f&&f!=='system'?f:(localStorage.getItem('theme')||'system');if(m==='system'){m=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.classList.toggle('dark',m==='dark')}catch(e){}})();`;
 
+// Runs before the app's own scripts, so it still works when those are the ones that fail: if this
+// document came from the edge cache of a previous deploy, its asset files 404 and nothing boots.
+// Reloading fetches the current build. The timestamp guard prevents a reload loop.
+const recoverScript = `(function(){var done=false;addEventListener('error',function(e){var t=e.target;if(!t||done)return;var u=t.src||t.href||'';if((t.tagName==='SCRIPT'||t.tagName==='LINK')&&u.indexOf('/assets/')>-1){try{var k='pylon:last-reload';var last=+(sessionStorage.getItem(k)||0);if(Date.now()-last<30000)return;sessionStorage.setItem(k,String(Date.now()))}catch(err){}done=true;location.reload()}},true)})();`;
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const icon = useRouteLoaderData<typeof loader>("root")?.icon;
   return (
@@ -30,6 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: recoverScript }} />
       </head>
       <body>
         {children}

@@ -11,10 +11,23 @@ import type { NotifyJob } from "../server/notify/dispatch";
 export { MonitorRunner } from "../server/do/monitor-runner";
 export { LiveHub } from "../server/do/live-hub";
 
-const requestHandler = createRequestHandler(
-  () => import("virtual:react-router/server-build"),
-  import.meta.env.MODE,
-);
+const serverBuild = () => import("virtual:react-router/server-build");
+
+const requestHandler = createRequestHandler(serverBuild, import.meta.env.MODE);
+
+/**
+ * Cached HTML embeds the asset URLs of the build that produced it, and those files are gone after
+ * the next deploy. Keying the cache by build version means a deploy can never serve HTML that
+ * points at files which no longer exist.
+ */
+let buildVersion: string | undefined;
+async function getBuildVersion(): Promise<string> {
+  if (!buildVersion) {
+    const build = (await serverBuild()) as unknown as { assets?: { version?: string } };
+    buildVersion = build.assets?.version ?? "dev";
+  }
+  return buildVersion;
+}
 
 /**
  * What a status page's custom domain may serve. Everything else (dashboard, auth, docs, API)
@@ -99,12 +112,20 @@ export default {
     }
 
     // --- edge cache for public, anonymous status content (keyed by the real hostname)
-    const cacheable = request.method === "GET" && (customDomainSlug !== undefined || path.startsWith("/s/") || path.startsWith("/api/v1/status/") || path === "/llms.txt" || path === "/sitemap.xml");
+    // Single-fetch data responses (".data") are tied to the build that produced them, so they are
+    // never cached: a page from a newer build must not receive an older build's payload.
+    const isDataRequest = path.endsWith(".data");
+    const cacheable = request.method === "GET" && !isDataRequest
+      && (customDomainSlug !== undefined || path.startsWith("/s/") || path.startsWith("/api/v1/status/") || path === "/llms.txt" || path === "/sitemap.xml");
     const cacheUrl = new URL(request.url);
     if (edgeHost) cacheUrl.host = edgeHost;
+    if (cacheable) cacheUrl.searchParams.set("__v", await getBuildVersion());
     const cacheKey = new Request(cacheUrl.toString(), { method: "GET", headers: { accept } });
     const cache = (caches as unknown as { default: Cache }).default;
-    if (cacheable) {
+    // A reload (Cache-Control: max-age=0 / no-cache) must reach the Worker, so someone recovering
+    // from a broken page is never handed the cached copy that broke it.
+    const wantsFresh = /no-cache|max-age=0/i.test(request.headers.get("cache-control") ?? "") || request.headers.get("pragma") === "no-cache";
+    if (cacheable && !wantsFresh) {
       const hit = await cache.match(cacheKey);
       if (hit) return hit;
     }

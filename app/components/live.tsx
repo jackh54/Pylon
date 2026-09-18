@@ -50,7 +50,11 @@ export function useLiveStatus(basePath: string, enabled = true) {
       try {
         ws = new WebSocket(`${proto}://${location.host}${basePath}/live`);
       } catch { startPolling(); return; }
-      ws.onopen = () => { setConnected(true); stopPolling(); retry = 1000; pingTimer = setInterval(() => ws?.send("ping"), 30_000); };
+      ws.onopen = () => {
+        setConnected(true); stopPolling(); retry = 1000;
+        // after the browser freezes a background tab the socket can be closing when this fires
+        pingTimer = setInterval(() => { try { if (ws?.readyState === WebSocket.OPEN) ws.send("ping"); } catch { /* closing */ } }, 30_000);
+      };
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(String(ev.data)) as { type: string } & Partial<LiveUpdate>;
