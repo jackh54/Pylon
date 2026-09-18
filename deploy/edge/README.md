@@ -51,6 +51,10 @@ The alternative with no server at all is Cloudflare for SaaS (100 hostnames incl
 
 Monitor the edge with Pylon itself: an HTTP monitor on `https://edge.yourdomain.com/healthz`.
 
+## Notes
+
+- The proxy drops the `Referer` header on its way to Pylon. Without that, Cloudflare **Hotlink Protection** on the Pylon zone returns 403 for images (logos, OG images) requested from a customer's domain, because the referring site is a different domain. Disabling Hotlink Protection on the Pylon zone, or adding a configuration rule for the Pylon hostname, works too.
+
 ## Security notes
 
 - The Worker trusts `X-Pylon-Host` **only** when `X-Pylon-Edge-Secret` matches `EDGE_SECRET`. Anyone else sending those headers is treated as a normal visitor.

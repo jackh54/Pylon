@@ -60,6 +60,10 @@ https:// {
 		header_up Host {{PYLON_HOST}}
 		header_up X-Pylon-Host {host}
 		header_up X-Pylon-Edge-Secret {$EDGE_SECRET}
+		# Customer domains are a different site than the Pylon host, so Cloudflare Hotlink
+		# Protection (if enabled on the Pylon zone) would 403 logos and other images. Pylon
+		# does not use the referrer, so drop it and the request looks direct.
+		header_up -Referer
 		header_up -Cf-Connecting-Ip
 		transport http {
 			tls_server_name {{PYLON_HOST}}
